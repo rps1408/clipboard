@@ -1,0 +1,39 @@
+import io.cucumber.java.BeforeAll;
+import io.cucumber.java.AfterAll;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
+public class MonitorHooks {
+
+    @BeforeAll
+    public static void startMonitoring() throws IOException, InterruptedException {
+        System.out.println("🚀 Starting resource monitoring...");
+        runCommand("bash -c 'curl -s -O https://raw.githubusercontent.com/<org>/<repo>/main/monitor.sh && chmod +x monitor.sh && ./monitor.sh'");
+    }
+
+    @AfterAll
+    public static void stopMonitoring() throws IOException, InterruptedException {
+        System.out.println("🛑 Stopping resource monitoring...");
+        runCommand("bash -c 'curl -s -O https://raw.githubusercontent.com/<org>/<repo>/main/stop_monitor.sh && chmod +x stop_monitor.sh && ./stop_monitor.sh'");
+    }
+
+    private static void runCommand(String command) throws IOException, InterruptedException {
+        Process process = new ProcessBuilder("bash", "-c", command)
+                .redirectErrorStream(true)
+                .start();
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+        }
+
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            throw new RuntimeException("Command failed: " + command);
+        }
+    }
+}
