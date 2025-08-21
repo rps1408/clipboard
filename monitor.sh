@@ -1,18 +1,25 @@
 #!/bin/bash
-# monitor.sh - start resource monitoring (CPU & RAM)
-# Runs in background, logs usage to monitor.log
+# monitor.sh - Portable CPU & Memory Monitor (Linux + macOS)
 
-LOG_FILE="monitor.log"
+OUTPUT_FILE="resource_metrics.log"
+INTERVAL=5   # seconds between samples
 
-echo "[INFO] Starting monitoring..."
-: > "$LOG_FILE"   # truncate previous log if exists
+# Start fresh
+echo "timestamp,cpu_percent,mem_mb" > "$OUTPUT_FILE"
 
-# Collect CPU & Memory every second
 while true; do
-    timestamp=$(date +"%Y-%m-%d %H:%M:%S")
-    cpu=$(top -bn1 | awk '/^%Cpu/{print 100 - $8}')   # CPU usage %
-    mem=$(free -m | awk '/Mem/{printf "%.2f", $3/$2*100}') # RAM usage %
+    TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
 
-    echo "$timestamp CPU:$cpu RAM:$mem" >> "$LOG_FILE"
-    sleep 1
+    # --- CPU Usage (sum of all processes) ---
+    CPU=$(ps -A -o %cpu= | awk '{s+=$1} END {print s}')
+    # If empty, set to 0
+    CPU=${CPU:-0}
+
+    # --- Memory Usage (sum of all processes) ---
+    MEM=$(ps -A -o rss= | awk '{s+=$1} END {print s/1024}')
+    MEM=${MEM:-0}
+
+    echo "$TIMESTAMP,$CPU,$MEM" >> "$OUTPUT_FILE"
+
+    sleep $INTERVAL
 done

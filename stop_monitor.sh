@@ -1,42 +1,30 @@
 #!/bin/bash
-# stop_monitor.sh - stop monitoring and generate summary JSON
+# stop_monitor.sh - Stops monitor.sh and produces summary JSON
 
-LOG_FILE="monitor.log"
-OUT_FILE="perf_summary.json"
+OUTPUT_FILE="resource_metrics.log"
+SUMMARY_FILE="resource_summary.json"
 
-echo "[INFO] Stopping monitoring..."
+# Kill monitor.sh process
+pkill -f monitor.sh
 
-# Kill monitor.sh background process
-pkill -f monitor.sh || true
+# Compute summary
+if [[ -f "$OUTPUT_FILE" ]]; then
+    AVG_CPU=$(awk -F',' 'NR>1 {sum+=$2; count++} END {if(count>0) print sum/count; else print 0}' "$OUTPUT_FILE")
+    MAX_CPU=$(awk -F',' 'NR>1 {if($2>max) max=$2} END {print max+0}' "$OUTPUT_FILE")
 
-if [ ! -f "$LOG_FILE" ]; then
-    echo "[ERROR] Log file not found."
-    exit 1
-fi
+    AVG_MEM=$(awk -F',' 'NR>1 {sum+=$3; count++} END {if(count>0) print sum/count; else print 0}' "$OUTPUT_FILE")
+    MAX_MEM=$(awk -F',' 'NR>1 {if($3>max) max=$3} END {print max+0}' "$OUTPUT_FILE")
 
-# Extract CPU and RAM values
-cpu_values=$(awk '{print $2}' "$LOG_FILE" | cut -d: -f2)
-ram_values=$(awk '{print $3}' "$LOG_FILE" | cut -d: -f2)
-
-# Compute averages and max
-avg_cpu=$(echo "$cpu_values" | awk '{sum+=$1} END {if (NR>0) printf "%.2f", sum/NR; else print 0}')
-max_cpu=$(echo "$cpu_values" | sort -nr | head -1)
-
-avg_ram=$(echo "$ram_values" | awk '{sum+=$1} END {if (NR>0) printf "%.2f", sum/NR; else print 0}')
-max_ram=$(echo "$ram_values" | sort -nr | head -1)
-
-# Save JSON summary
-cat <<EOF > "$OUT_FILE"
+    cat <<EOF > "$SUMMARY_FILE"
 {
-  "cpu": {
-    "avg": $avg_cpu,
-    "max": $max_cpu
-  },
-  "ram": {
-    "avg": $avg_ram,
-    "max": $max_ram
-  }
+  "avg_cpu_percent": $AVG_CPU,
+  "max_cpu_percent": $MAX_CPU,
+  "avg_mem_mb": $AVG_MEM,
+  "max_mem_mb": $MAX_MEM
 }
 EOF
 
-echo "[INFO] Summary written to $OUT_FILE"
+    echo "Summary written to $SUMMARY_FILE"
+else
+    echo "No log file found!"
+fi
